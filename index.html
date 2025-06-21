@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Kamera ile Sayı Okuma</title>
+    <style>
+        /* General Styling */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 1rem;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            overscroll-behavior: contain; /* Prevents pull-to-refresh */
+        }
+
+        /* Main container for the application */
+        #app-container {
+            max-width: 600px;
+            width: 100%;
+            background: #ffffff;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;
+        }
+
+        /* Header styling */
+        h1 {
+            font-size: 1.5rem;
+            text-align: center;
+            color: #007aff;
+            margin-bottom: 0.5rem;
+        }
+        
+        p {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: #606770;
+        }
+
+        /* Video container to maintain aspect ratio */
+        #video-container {
+            position: relative;
+            width: 100%;
+            /* 4:3 Aspect Ratio */
+            padding-top: 75%;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+
+        /* Video element styling */
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Ensures video covers the container */
+        }
+
+        /* Button styling */
+        #capture-button {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #ffffff;
+            background: linear-gradient(to right, #007aff, #00c6ff);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            -webkit-tap-highlight-color: transparent; /* Removes tap highlight on iOS */
+        }
+
+        #capture-button:disabled {
+            background: #c7c7cc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        #capture-button:active:not(:disabled) {
+            transform: scale(0.98);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* Output section styling */
+        #output-section {
+            margin-top: 1.5rem;
+        }
+
+        #output-section h2 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+
+        #result-box {
+            background: #f0f2f5;
+            padding: 1rem;
+            border-radius: 8px;
+            min-height: 4rem;
+            font-family: "SF Mono", "Menlo", "Courier New", Courier, monospace;
+            font-size: 1.4rem;
+            font-weight: bold;
+            text-align: center;
+            color: #007aff;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Status and progress bar styling */
+        #status-container {
+            margin-top: 1rem;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #606770;
+            height: 40px; /* Reserve space to prevent layout shifts */
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 10px;
+            background-color: #007aff;
+            transition: width 0.3s ease-in-out;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <h1>Sayı Tarayıcı</h1>
+        <p>Kameranızı sayılara doğrultun ve aşağıdaki düğmeye basın.</p>
+
+        <div id="video-container">
+            <!-- 'playsinline' is crucial for iOS to prevent fullscreen playback -->
+            <video id="video" autoplay playsinline muted></video>
+        </div>
+
+        <button id="capture-button" disabled>Kamera Yükleniyor...</button>
+
+        <div id="status-container">
+            <div id="status-text">Kamera başlatılıyor... Lütfen izin verin.</div>
+            <div id="progress-container" class="hidden">
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="output-section">
+            <h2>Tanınan Sayılar</h2>
+            <div id="result-box">Sonuç burada görünecek</div>
+        </div>
+    </div>
+
+    <!-- Tesseract.js library from a CDN -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    
+    <script>
+        // DOM element references
+        const videoElement = document.getElementById('video');
+        const captureButton = document.getElementById('capture-button');
+        const resultBox = document.getElementById('result-box');
+        const statusText = document.getElementById('status-text');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+        
+        let tesseractWorker = null;
+        let isWorkerReady = false;
+
+        // Function to initialize the Tesseract.js worker
+        async function initializeWorker() {
+            statusText.textContent = 'OCR motoru yükleniyor...';
+            try {
+                tesseractWorker = await Tesseract.createWorker('eng', 1, {
+                    logger: m => {
+                        // Update progress bar during recognition
+                        if (m.status === 'recognizing text') {
+                            const progress = m.progress * 100;
+                            progressBar.style.width = `${progress}%`;
+                        }
+                    },
+                });
+                // Configure Tesseract to only recognize digits for better accuracy
+                await tesseractWorker.setParameters({
+                    tessedit_char_whitelist: '0123456789',
+                });
+                isWorkerReady = true;
+                statusText.textContent = 'Kamera hazır. Taramaya başlayabilirsiniz.';
+                captureButton.textContent = 'Sayıları Tara';
+                captureButton.disabled = false;
+            } catch(err) {
+                console.error("OCR Worker Error:", err);
+                statusText.textContent = 'OCR motoru başlatılamadı.';
+            }
+        }
+
+
+        // Function to start the camera stream
+        async function startCamera() {
+            try {
+                // **COMPATIBILITY FIX for iOS 12**
+                // Removed specific resolution request ({width, height}). 
+                // This allows older devices to use a default, more stable resolution.
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment'
+                    }
+                });
+                videoElement.srcObject = stream;
+                
+                // Once the video can play, initialize the OCR worker.
+                // This is a more robust way to ensure the stream is active.
+                videoElement.oncanplay = () => {
+                   if (!isWorkerReady) {
+                        initializeWorker();
+                   }
+                };
+            } catch (err) {
+                console.error("Camera Error:", err);
+                statusText.textContent = `Kamera hatası: ${err.name}. İzinleri kontrol edin.`;
+                // Use a non-blocking alert for better user experience.
+                setTimeout(() => {
+                    alert(`Hata: Kameraya erişilemedi (${err.name}). Lütfen Safari ayarlarından kamera iznini kontrol edin ve sayfayı yenileyin.`);
+                }, 100);
+            }
+        }
+
+        // Event listener for the capture button
+        captureButton.addEventListener('click', async () => {
+            if (!videoElement.srcObject || !isWorkerReady) {
+                alert("Kamera veya OCR motoru henüz hazır değil.");
+                return;
+            }
+
+            // Disable button and show progress
+            captureButton.disabled = true;
+            captureButton.textContent = 'Taranıyor...';
+            statusText.textContent = 'Görüntü işleniyor...';
+            resultBox.textContent = '';
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+
+            // Create a canvas to capture a frame from the video
+            const canvas = document.createElement('canvas');
+            canvas.width = videoElement.videoWidth;
+            canvas.height = videoElement.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+            try {
+                // Perform OCR on the captured frame
+                const { data: { text } } = await tesseractWorker.recognize(canvas);
+                const recognizedText = text.trim();
+                
+                if (recognizedText) {
+                    resultBox.textContent = recognizedText;
+                    statusText.textContent = 'Tarama başarıyla tamamlandı!';
+                } else {
+                    resultBox.textContent = 'Sayı bulunamadı';
+                    statusText.textContent = 'Herhangi bir sayı tespit edilemedi. Lütfen tekrar deneyin.';
+                }
+            } catch (error) {
+                console.error("OCR Error:", error);
+                resultBox.textContent = 'Hata';
+                statusText.textContent = 'Sayılar tanınırken bir hata oluştu.';
+            } finally {
+                // Re-enable the button and hide progress
+                captureButton.disabled = false;
+                captureButton.textContent = 'Sayıları Tara';
+                progressContainer.classList.add('hidden');
+            }
+        });
+
+        // Start the camera when the page loads
+        window.addEventListener('load', startCamera);
+    </script>
+</body>
+</html>
