@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Kamera ile Sayı Okuma</title>
+    <title>Kamera ile Hedef Arama</title>
     <style>
         /* General Styling */
         body {
@@ -124,7 +124,15 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: background-color 0.3s, color 0.3s;
         }
+        
+        /* Style for when the target is found */
+        #result-box.found {
+            background-color: #34c759; /* Green background */
+            color: #ffffff; /* White text */
+        }
+
 
         /* Status and progress bar styling */
         #status-container {
@@ -157,15 +165,15 @@
 <body>
 
     <div id="app-container">
-        <h1>Sayı Tarayıcı</h1>
-        <p>Önce kamerayı başlatın, sonra tarama yapın.</p>
+        <h1>Hedef Numarayı Bul</h1>
+        <p>Aranacak numara: <strong>8681291090066</strong></p>
 
         <div id="video-container">
             <video id="video" autoplay playsinline muted></video>
         </div>
 
         <button id="start-camera-button" class="action-button">Kamerayı Başlat</button>
-        <button id="capture-button" class="action-button hidden" disabled>Sayıları Tara</button>
+        <button id="capture-button" class="action-button hidden" disabled>Tara</button>
 
         <div id="status-container">
             <div id="status-text">Kamerayı başlatmak için düğmeye basın.</div>
@@ -177,8 +185,8 @@
         </div>
 
         <div id="output-section">
-            <h2>Tanınan Sayılar</h2>
-            <div id="result-box">Sonuç burada görünecek</div>
+            <h2>Sonuç</h2>
+            <div id="result-box">...</div>
         </div>
     </div>
 
@@ -268,6 +276,7 @@
             captureButton.textContent = 'Taranıyor...';
             statusText.textContent = 'Görüntü işleniyor...';
             resultBox.textContent = '';
+            resultBox.classList.remove('found'); // Reset style
             progressContainer.classList.remove('hidden');
             progressBar.style.width = '0%';
 
@@ -280,20 +289,34 @@
                 const { data: { text } } = await tesseractWorker.recognize(canvas);
                 const recognizedText = text.trim();
                 
+                // --- NEW LOGIC TO CHECK FOR SPECIFIC NUMBER ---
+                const targetNumber = '8681291090066';
+                
                 if (recognizedText) {
-                    resultBox.textContent = recognizedText;
-                    statusText.textContent = 'Tarama başarıyla tamamlandı!';
+                    // Remove all spaces and newlines to make matching easier
+                    const cleanRecognizedText = recognizedText.replace(/\s+/g, '');
+
+                    if (cleanRecognizedText.includes(targetNumber)) {
+                        resultBox.textContent = `BULUNDU: ${targetNumber}`;
+                        resultBox.classList.add('found'); // Apply success style
+                        statusText.textContent = 'Hedef numara başarıyla bulundu!';
+                    } else {
+                        resultBox.textContent = recognizedText;
+                        statusText.textContent = 'Tarama tamamlandı, ancak hedef numara bulunamadı.';
+                    }
                 } else {
                     resultBox.textContent = 'Sayı bulunamadı';
                     statusText.textContent = 'Herhangi bir sayı tespit edilemedi.';
                 }
+                // --- END OF NEW LOGIC ---
+
             } catch (error) {
                 console.error("OCR Error:", error);
                 resultBox.textContent = 'Hata';
                 statusText.textContent = 'Sayılar tanınırken bir hata oluştu.';
             } finally {
                 captureButton.disabled = false;
-                captureButton.textContent = 'Sayıları Tara';
+                captureButton.textContent = 'Tara';
                 progressContainer.classList.add('hidden');
             }
         });
