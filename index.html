@@ -283,9 +283,18 @@
                 });
             }
             totalPriceElement.textContent = `${Object.values(cart).reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2)} TL`;
+            
+            // Save cart to session storage
+            sessionStorage.setItem('barcodeCart', JSON.stringify(cart));
         }
         
         function setupAppForUser(userId) {
+            // Load cart from session storage on login
+            const savedCart = sessionStorage.getItem('barcodeCart');
+            if(savedCart) {
+                cart = JSON.parse(savedCart);
+            }
+
             listenForProductChanges(userId);
             setupEventListeners();
             updateCartUI();
@@ -325,33 +334,31 @@
                 const item = productDatabase[barcode];
                 const li = document.createElement('li');
                 li.innerHTML = `
-                    <div style="flex-grow: 1;"><strong>${item.name}</strong><br><small>Barkod: ${barcode}</small></div>
-                    <div><button data-barcode="${barcode}" class="btn-light edit-btn" style="margin-right: 5px;">Düzenle</button><button data-barcode="${barcode}" class="btn-danger delete-btn">Sil</button></div>`;
+                    <div style="flex-grow: 1;">
+                        <strong>${item.name}</strong>
+                        <strong style="margin-left: 10px; color: #007bff;">${item.price.toFixed(2)} TL</strong>
+                        <br><small>Barkod: ${barcode}</small>
+                    </div>
+                    <div>
+                        <button data-barcode="${barcode}" class="btn-light edit-btn" style="margin-right: 5px;">Düzenle</button>
+                        <button data-barcode="${barcode}" class="btn-danger delete-btn">Sil</button>
+                    </div>`;
                 listEl.appendChild(li);
             });
         }
         
         function populateFormForEditing(barcode, item) {
-            const originalBarcodeEl = document.getElementById('original-barcode-input');
-            const barcodeInputEl = document.getElementById('barcode-input');
-            const nameInputEl = document.getElementById('name-input');
-            const priceInputEl = document.getElementById('price-input');
-            const formSubmitBtnEl = document.getElementById('form-submit-button');
-
-            originalBarcodeEl.value = barcode;
-            barcodeInputEl.value = barcode;
-            nameInputEl.value = item.name;
-            priceInputEl.value = item.price;
-            formSubmitBtnEl.textContent = 'Güncelle';
+            document.getElementById('original-barcode-input').value = barcode;
+            document.getElementById('barcode-input').value = barcode;
+            document.getElementById('name-input').value = item.name;
+            document.getElementById('price-input').value = item.price;
+            document.getElementById('form-submit-button').textContent = 'Güncelle';
         }
         
         function resetProductForm() {
-             const productFormEl = document.getElementById('product-form');
-             const originalBarcodeEl = document.getElementById('original-barcode-input');
-             const formSubmitBtnEl = document.getElementById('form-submit-button');
-             productFormEl.reset();
-             originalBarcodeEl.value = '';
-             formSubmitBtnEl.textContent = 'Ekle';
+             document.getElementById('product-form').reset();
+             document.getElementById('original-barcode-input').value = '';
+             document.getElementById('form-submit-button').textContent = 'Ekle';
         }
 
         function createAndShowProductModal() {
@@ -445,6 +452,8 @@
                 loginContainer.classList.remove('hidden');
                 if (unsubscribeProducts) unsubscribeProducts();
                 stopScanner();
+                sessionStorage.removeItem('barcodeCart');
+                cart = {};
             }
         });
 
