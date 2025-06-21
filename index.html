@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Barkod Tarayıcı</title>
+    <title>Gelişmiş Barkod Tarayıcı</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -29,21 +29,29 @@
             font-size: 1.5rem;
             text-align: center;
             color: #007aff;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
         
-        /* The container for the barcode scanner camera view */
         #reader {
             width: 100%;
             border-radius: 8px;
             overflow: hidden;
-            border: 1px solid #ddd;
+            border: 2px solid #ddd;
+            background: #000;
+        }
+        
+        #reader__dashboard_section_csr > div:first-child {
+            display: none; /* Hide the camera selection dropdown */
         }
 
-        /* Button styling */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 1.5rem;
+        }
+
         .action-button {
-            display: block;
-            width: 100%;
+            flex-grow: 1;
             padding: 1rem;
             font-size: 1.1rem;
             font-weight: bold;
@@ -52,21 +60,28 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            margin-top: 1.5rem;
-            transition: background-color 0.3s;
+            transition: background-color 0.3s, opacity 0.3s;
             -webkit-tap-highlight-color: transparent;
         }
 
         .action-button:disabled {
             background: #c7c7cc;
             cursor: not-allowed;
+            opacity: 0.7;
         }
 
         .action-button.stop {
              background: linear-gradient(to right, #ff3b30, #ff9500);
         }
+        
+        #torch-button {
+            background: linear-gradient(to right, #ff9500, #ffcc00);
+        }
+        
+        #torch-button.on {
+            background: linear-gradient(to right, #ffcc00, #ff9500);
+        }
 
-        /* Result section styling */
         #result-section {
             margin-top: 1.5rem;
             text-align: center;
@@ -90,16 +105,18 @@
             align-items: center;
             justify-content: center;
             transition: background-color 0.3s, color 0.3s;
+            word-break: break-all;
         }
         
         #result-box.found {
-            background-color: #34c759; /* Green background */
-            color: #ffffff; /* White text */
+            background-color: #34c759;
+            color: #ffffff;
         }
         
         #status-text {
              margin-top: 1rem;
              color: #606770;
+             min-height: 2.5rem;
         }
         
     </style>
@@ -107,12 +124,14 @@
 <body>
 
     <div id="app-container">
-        <h1>Barkod Tarayıcı</h1>
+        <h1>Gelişmiş Barkod Tarayıcı</h1>
         
-        <!-- This div is where the camera scanner will be rendered -->
         <div id="reader"></div>
 
-        <button id="scan-button" class="action-button">Taramayı Başlat</button>
+        <div class="button-group">
+            <button id="scan-button" class="action-button">Taramayı Başlat</button>
+            <button id="torch-button" class="action-button" disabled>Işığı Aç</button>
+        </div>
 
         <div id="result-section">
             <h2>Sonuç</h2>
@@ -121,55 +140,62 @@
         </div>
     </div>
 
-    <!-- The html5-qrcode library -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <script>
         const scanButton = document.getElementById('scan-button');
+        const torchButton = document.getElementById('torch-button');
         const resultBox = document.getElementById('result-box');
         const statusText = document.getElementById('status-text');
         
         let isScanning = false;
+        let isTorchOn = false;
         
-        // This object will handle the scanner functionality
         const html5QrCode = new Html5Qrcode("reader");
 
-        // The function that gets called when a barcode is successfully scanned
         const onScanSuccess = (decodedText, decodedResult) => {
-            // decodedText contains the scanned barcode number
             const targetBarcode = '8681291090066';
-            
-            resultBox.classList.remove('found'); // Reset style
+            resultBox.classList.remove('found');
             
             if (decodedText === targetBarcode) {
                 resultBox.textContent = `BULUNDU: ${decodedText}`;
-                resultBox.classList.add('found'); // Apply green style
+                resultBox.classList.add('found');
                 statusText.textContent = "Hedef barkod başarıyla eşleşti!";
-                
-                // Optional: Stop scanning after a successful match
+                navigator.vibrate(200); // Vibrate on success
                 stopScanning();
-
             } else {
                 resultBox.textContent = `Bulunan: ${decodedText}`;
                 statusText.textContent = "Bu barkod hedefle eşleşmiyor.";
             }
         };
 
-        // The function that gets called on scan failure (optional)
-        const onScanFailure = (error) => {
-            // This can be ignored, as it fires continuously when no code is found.
-            // console.warn(`Code scan error = ${error}`);
-        };
+        const onScanFailure = (error) => { /* Ignore */ };
         
         function startScanning() {
-             html5QrCode.start(
-                { facingMode: "environment" }, // Use the rear camera
-                {
-                    fps: 10, // Frames per second
-                    // Specify we are looking for EAN_13 barcodes
-                    formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13 ], 
-                    qrbox: { width: 250, height: 150 } // Size of the scanning box
-                },
+            // **IMPROVEMENT**: Advanced video constraints for better real-world scanning
+            const videoConstraints = {
+                facingMode: "environment",
+                focusMode: "continuous", // Prioritize continuous auto-focus
+                zoom: { ideal: 1.2 },      // Suggest a slight zoom
+            };
+            
+            // **IMPROVEMENT**: Higher FPS and specific format for barcodes
+            const config = {
+                fps: 25, // Increased FPS for more chances to scan
+                formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13 ],
+                qrbox: (viewfinderWidth, viewfinderHeight) => {
+                    // Make scanning box wider for barcodes
+                    return {
+                        width: viewfinderWidth * 0.85,
+                        height: viewfinderHeight * 0.4
+                    };
+                }
+            };
+            
+            scanButton.disabled = true;
+            html5QrCode.start(
+                videoConstraints,
+                config,
                 onScanSuccess,
                 onScanFailure
             ).then(() => {
@@ -177,8 +203,11 @@
                 scanButton.textContent = 'Taramayı Durdur';
                 scanButton.classList.add('stop');
                 resultBox.textContent = "Barkod aranıyor...";
+                scanButton.disabled = false;
+                checkTorchCapability();
             }).catch(err => {
                  resultBox.textContent = `Hata: ${err}`;
+                 scanButton.disabled = false;
             });
         }
         
@@ -188,12 +217,43 @@
                 scanButton.textContent = 'Taramayı Başlat';
                 scanButton.classList.remove('stop');
                 resultBox.textContent = "Tarama durduruldu.";
+                torchButton.disabled = true;
+                torchButton.textContent = "Işığı Aç";
+                isTorchOn = false;
             }).catch(err => {
                 console.error("Durdurma hatası:", err);
             });
         }
+        
+        // **NEW**: Check if the camera has a flashlight
+        function checkTorchCapability() {
+            try {
+                 const track = html5QrCode.getRunningTrack();
+                 const capabilities = track.getCapabilities();
+                 if (capabilities.torch) {
+                     torchButton.disabled = false;
+                 } else {
+                     statusText.textContent = "Bu cihazın ışık özelliği yok.";
+                 }
+            } catch (err) {
+                 console.error("Işık özelliği kontrol hatası:", err);
+                 torchButton.disabled = true;
+            }
+        }
+        
+        // **NEW**: Toggle the flashlight
+        function toggleTorch() {
+            if (isScanning && !torchButton.disabled) {
+                const track = html5QrCode.getRunningTrack();
+                isTorchOn = !isTorchOn;
+                track.applyConstraints({
+                    advanced: [{torch: isTorchOn}]
+                }).then(() => {
+                    torchButton.textContent = isTorchOn ? "Işığı Kapat" : "Işığı Aç";
+                }).catch(e => console.log(e));
+            }
+        }
 
-        // Event listener for the main button
         scanButton.addEventListener('click', () => {
             if (isScanning) {
                 stopScanning();
@@ -201,6 +261,8 @@
                 startScanning();
             }
         });
+        
+        torchButton.addEventListener('click', toggleTorch);
 
     </script>
 </body>
