@@ -129,6 +129,9 @@
             font-size: 0.9rem;
             color: #606770;
             height: 40px; /* Reserve space to prevent layout shifts */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .progress-bar-container {
@@ -194,88 +197,98 @@
         let tesseractWorker = null;
         let isWorkerReady = false;
 
-        // Function to initialize the Tesseract.js worker
+        // **NEW LOGIC**: Initialize worker only when needed (lazy loading)
         async function initializeWorker() {
-            statusText.textContent = 'OCR motoru yükleniyor...';
+            statusText.textContent = 'OCR motoru ilk kullanım için hazırlanıyor...';
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%'; // Reset progress bar
+
             try {
                 tesseractWorker = await Tesseract.createWorker('eng', 1, {
                     logger: m => {
-                        // Update progress bar during recognition
-                        if (m.status === 'recognizing text') {
-                            const progress = m.progress * 100;
-                            progressBar.style.width = `${progress}%`;
+                         // Simple progress for loading
+                        if (m.status === 'loading language model') {
+                             progressBar.style.width = (m.progress * 100) + '%';
                         }
                     },
                 });
-                // Configure Tesseract to only recognize digits for better accuracy
                 await tesseractWorker.setParameters({
                     tessedit_char_whitelist: '0123456789',
                 });
                 isWorkerReady = true;
-                statusText.textContent = 'Kamera hazır. Taramaya başlayabilirsiniz.';
-                captureButton.textContent = 'Sayıları Tara';
-                captureButton.disabled = false;
+                statusText.textContent = 'OCR motoru hazır. Şimdi tarayabilirsiniz.';
+                progressContainer.classList.add('hidden');
+                return true;
             } catch(err) {
                 console.error("OCR Worker Error:", err);
-                statusText.textContent = 'OCR motoru başlatılamadı.';
+                statusText.textContent = 'Hata: OCR motoru başlatılamadı.';
+                captureButton.disabled = false;
+                captureButton.textContent = 'Tekrar Dene';
+                return false;
             }
         }
 
-
-        // Function to start the camera stream
-        async function startCamera() {
-            try {
-                // **COMPATIBILITY FIX for iOS 12**
-                // Removed specific resolution request ({width, height}). 
-                // This allows older devices to use a default, more stable resolution.
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'environment'
-                    }
-                });
+        // **UPDATED LOGIC**: Start camera first, without waiting for OCR
+        function startCamera() {
+            // Use standard promise chain for better compatibility with older browsers
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' }
+            })
+            .then(function(stream) {
                 videoElement.srcObject = stream;
+                // Add explicit play() call, crucial for some iOS versions
+                videoElement.play(); 
                 
-                // Once the video can play, initialize the OCR worker.
-                // This is a more robust way to ensure the stream is active.
-                videoElement.oncanplay = () => {
-                   if (!isWorkerReady) {
-                        initializeWorker();
-                   }
-                };
-            } catch (err) {
+                statusText.textContent = 'Kamera hazır. Taramak için düğmeye basın.';
+                captureButton.textContent = 'Sayıları Tara';
+                captureButton.disabled = false;
+            })
+            .catch(function(err) {
                 console.error("Camera Error:", err);
                 statusText.textContent = `Kamera hatası: ${err.name}. İzinleri kontrol edin.`;
-                // Use a non-blocking alert for better user experience.
-                setTimeout(() => {
-                    alert(`Hata: Kameraya erişilemedi (${err.name}). Lütfen Safari ayarlarından kamera iznini kontrol edin ve sayfayı yenileyin.`);
-                }, 100);
-            }
+                alert(`Hata: Kameraya erişilemedi (${err.name}). Lütfen Safari ayarlarından kamera iznini kontrol edin ve sayfayı yenileyin.`);
+            });
         }
 
         // Event listener for the capture button
         captureButton.addEventListener('click', async () => {
-            if (!videoElement.srcObject || !isWorkerReady) {
-                alert("Kamera veya OCR motoru henüz hazır değil.");
+            if (!videoElement.srcObject) {
+                alert("Kamera akışı bulunamadı. Lütfen sayfayı yenileyin.");
                 return;
             }
-
-            // Disable button and show progress
+            
             captureButton.disabled = true;
+
+            // **NEW LOGIC**: Initialize worker on first click
+            if (!isWorkerReady) {
+                const success = await initializeWorker();
+                if (!success) { return; } // Stop if worker fails to initialize
+            }
+
+            // --- Proceed with capture and recognition ---
+
             captureButton.textContent = 'Taranıyor...';
             statusText.textContent = 'Görüntü işleniyor...';
             resultBox.textContent = '';
             progressContainer.classList.remove('hidden');
             progressBar.style.width = '0%';
 
-            // Create a canvas to capture a frame from the video
+            // Tesseract's own logger will handle the progress bar now
+            tesseractWorker.setLogging(true);
+            tesseractWorker.setParameters({
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        progressBar.style.width = (m.progress * 100) + '%';
+                    }
+                }
+            });
+
             const canvas = document.createElement('canvas');
             canvas.width = videoElement.videoWidth;
             canvas.height = videoElement.videoHeight;
-            const context = canvas.getContext('2d');
-            context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            canvas.getContext('2d').drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
             try {
-                // Perform OCR on the captured frame
                 const { data: { text } } = await tesseractWorker.recognize(canvas);
                 const recognizedText = text.trim();
                 
