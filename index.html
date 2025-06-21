@@ -332,22 +332,62 @@
         }
         
         function populateFormForEditing(barcode, item) {
-            document.getElementById('original-barcode-input').value = barcode;
-            document.getElementById('barcode-input').value = barcode;
-            document.getElementById('name-input').value = item.name;
-            document.getElementById('price-input').value = item.price;
-            document.getElementById('form-submit-button').textContent = 'Güncelle';
+            const originalBarcodeEl = document.getElementById('original-barcode-input');
+            const barcodeInputEl = document.getElementById('barcode-input');
+            const nameInputEl = document.getElementById('name-input');
+            const priceInputEl = document.getElementById('price-input');
+            const formSubmitBtnEl = document.getElementById('form-submit-button');
+
+            originalBarcodeEl.value = barcode;
+            barcodeInputEl.value = barcode;
+            nameInputEl.value = item.name;
+            priceInputEl.value = item.price;
+            formSubmitBtnEl.textContent = 'Güncelle';
         }
         
         function resetProductForm() {
-            document.getElementById('product-form').reset();
-            document.getElementById('original-barcode-input').value = '';
-            document.getElementById('form-submit-button').textContent = 'Ekle';
+             const productFormEl = document.getElementById('product-form');
+             const originalBarcodeEl = document.getElementById('original-barcode-input');
+             const formSubmitBtnEl = document.getElementById('form-submit-button');
+             productFormEl.reset();
+             originalBarcodeEl.value = '';
+             formSubmitBtnEl.textContent = 'Ekle';
         }
 
         function createAndShowProductModal() {
-            productModal.style.display = 'flex';
+            productModal.innerHTML = `
+             <div class="modal-content">
+                <h2 style="margin-top:0;">Ürün Yönetimi</h2>
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="product-search-input">Ürün Ara:</label>
+                    <input type="text" id="product-search-input" placeholder="Ürün adıyla ara...">
+                    <ul id="product-management-list" class="item-list" style="margin-top: 1rem;"></ul>
+                </div>
+                <div style="border-top: 1px solid #eee; padding-top: 1rem;">
+                     <h3 id="form-title">Yeni Ürün Ekle</h3>
+                     <form id="product-form">
+                         <input type="hidden" id="original-barcode-input">
+                         <div class="form-group"><label for="barcode-input">Barkod</label><input type="text" id="barcode-input" required></div>
+                         <div class="form-group"><label for="name-input">Ürün Adı</label><input type="text" id="name-input" required></div>
+                         <div class="form-group"><label for="price-input">Fiyat (TL)</label><input type="number" id="price-input" step="0.01" required></div>
+                         <div style="display:flex; gap: 10px;">
+                            <button type="submit" id="form-submit-button" class="btn-primary" style="flex-grow: 1;">Ekle</button>
+                            <button type="button" id="form-cancel-button" class="btn-secondary" style="flex-grow: 1;">İptal</button>
+                         </div>
+                     </form>
+                </div>
+                <button id="close-modal-btn" class="btn-light" style="margin-top: 1.5rem; width: 100%;">Kapat</button>
+            </div>
+            `;
+            
+            document.getElementById('close-modal-btn').addEventListener('click', () => { productModal.style.display = 'none'; startScanner(); });
+            document.getElementById('product-search-input').addEventListener('input', e => renderProductManagementList(e.target.value));
+            document.getElementById('product-management-list').addEventListener('click', handleProductListClick);
+            document.getElementById('product-form').addEventListener('submit', handleProductFormSubmit);
+            document.getElementById('form-cancel-button').addEventListener('click', resetProductForm);
+            
             renderProductManagementList();
+            productModal.style.display = 'flex';
         }
         
         function setupEventListeners() {
@@ -394,7 +434,6 @@
             resetProductForm();
         }
 
-        // --- AUTHENTICATION LOGIC ---
         onAuthStateChanged(auth, user => {
             if (user) {
                 appContainer.classList.remove('hidden');
@@ -443,12 +482,6 @@
         });
 
         logoutBtn.addEventListener('click', () => signOut(auth));
-        
-        document.getElementById('close-modal-btn').addEventListener('click', () => { productModal.style.display = 'none'; startScanner(); });
-        document.getElementById('product-search-input').addEventListener('input', e => renderProductManagementList(e.target.value));
-        document.getElementById('product-management-list').addEventListener('click', handleProductListClick);
-        document.getElementById('product-form').addEventListener('submit', handleProductFormSubmit);
-        document.getElementById('form-cancel-button').addEventListener('click', resetProductForm);
 
     </script>
 </body>
