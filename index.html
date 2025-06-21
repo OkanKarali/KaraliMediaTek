@@ -66,7 +66,7 @@
         }
 
         /* Button styling */
-        #capture-button {
+        .action-button {
             display: block;
             width: 100%;
             padding: 1rem;
@@ -82,16 +82,20 @@
             -webkit-tap-highlight-color: transparent; /* Removes tap highlight on iOS */
         }
 
-        #capture-button:disabled {
+        .action-button:disabled {
             background: #c7c7cc;
             cursor: not-allowed;
             transform: none;
             box-shadow: none;
         }
         
-        #capture-button:active:not(:disabled) {
+        .action-button:active:not(:disabled) {
             transform: scale(0.98);
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .hidden {
+            display: none;
         }
 
         /* Output section styling */
@@ -148,27 +152,23 @@
             background-color: #007aff;
             transition: width 0.3s ease-in-out;
         }
-        
-        .hidden {
-            display: none;
-        }
     </style>
 </head>
 <body>
 
     <div id="app-container">
         <h1>Sayı Tarayıcı</h1>
-        <p>Kameranızı sayılara doğrultun ve aşağıdaki düğmeye basın.</p>
+        <p>Önce kamerayı başlatın, sonra tarama yapın.</p>
 
         <div id="video-container">
-            <!-- 'playsinline' is crucial for iOS to prevent fullscreen playback -->
             <video id="video" autoplay playsinline muted></video>
         </div>
 
-        <button id="capture-button" disabled>Kamera Yükleniyor...</button>
+        <button id="start-camera-button" class="action-button">Kamerayı Başlat</button>
+        <button id="capture-button" class="action-button hidden" disabled>Sayıları Tara</button>
 
         <div id="status-container">
-            <div id="status-text">Kamera başlatılıyor... Lütfen izin verin.</div>
+            <div id="status-text">Kamerayı başlatmak için düğmeye basın.</div>
             <div id="progress-container" class="hidden">
                 <div class="progress-bar-container">
                     <div id="progress-bar" class="progress-bar"></div>
@@ -182,12 +182,12 @@
         </div>
     </div>
 
-    <!-- Tesseract.js library from a CDN -->
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     
     <script>
         // DOM element references
         const videoElement = document.getElementById('video');
+        const startCameraButton = document.getElementById('start-camera-button');
         const captureButton = document.getElementById('capture-button');
         const resultBox = document.getElementById('result-box');
         const statusText = document.getElementById('status-text');
@@ -197,17 +197,15 @@
         let tesseractWorker = null;
         let isWorkerReady = false;
 
-        // **NEW LOGIC**: Initialize worker only when needed (lazy loading)
         async function initializeWorker() {
-            statusText.textContent = 'OCR motoru ilk kullanım için hazırlanıyor...';
+            statusText.textContent = 'OCR motoru hazırlanıyor...';
             progressContainer.classList.remove('hidden');
-            progressBar.style.width = '0%'; // Reset progress bar
+            progressBar.style.width = '0%';
 
             try {
                 tesseractWorker = await Tesseract.createWorker('eng', 1, {
                     logger: m => {
-                         // Simple progress for loading
-                        if (m.status === 'loading language model') {
+                        if (m.status === 'loading language model' || m.status === 'recognizing text') {
                              progressBar.style.width = (m.progress * 100) + '%';
                         }
                     },
@@ -228,29 +226,32 @@
             }
         }
 
-        // **UPDATED LOGIC**: Start camera first, without waiting for OCR
         function startCamera() {
-            // Use standard promise chain for better compatibility with older browsers
+            startCameraButton.disabled = true;
+            startCameraButton.textContent = "Başlatılıyor...";
+            
             navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'environment' }
             })
             .then(function(stream) {
                 videoElement.srcObject = stream;
-                // Add explicit play() call, crucial for some iOS versions
-                videoElement.play(); 
+                videoElement.play();
                 
-                statusText.textContent = 'Kamera hazır. Taramak için düğmeye basın.';
-                captureButton.textContent = 'Sayıları Tara';
+                statusText.textContent = 'Kamera hazır. Tarama yapabilirsiniz.';
+                startCameraButton.classList.add('hidden');
+                captureButton.classList.remove('hidden');
                 captureButton.disabled = false;
             })
             .catch(function(err) {
                 console.error("Camera Error:", err);
-                statusText.textContent = `Kamera hatası: ${err.name}. İzinleri kontrol edin.`;
-                alert(`Hata: Kameraya erişilemedi (${err.name}). Lütfen Safari ayarlarından kamera iznini kontrol edin ve sayfayı yenileyin.`);
+                statusText.innerHTML = `<strong>Kamera Hatası: ${err.name}</strong><br>Lütfen Safari ayarlarından kamera izni verip sayfayı yenileyin.`;
+                startCameraButton.disabled = false;
+                startCameraButton.textContent = "Tekrar Dene";
             });
         }
+        
+        startCameraButton.addEventListener('click', startCamera);
 
-        // Event listener for the capture button
         captureButton.addEventListener('click', async () => {
             if (!videoElement.srcObject) {
                 alert("Kamera akışı bulunamadı. Lütfen sayfayı yenileyin.");
@@ -259,29 +260,16 @@
             
             captureButton.disabled = true;
 
-            // **NEW LOGIC**: Initialize worker on first click
             if (!isWorkerReady) {
                 const success = await initializeWorker();
-                if (!success) { return; } // Stop if worker fails to initialize
+                if (!success) { return; }
             }
-
-            // --- Proceed with capture and recognition ---
 
             captureButton.textContent = 'Taranıyor...';
             statusText.textContent = 'Görüntü işleniyor...';
             resultBox.textContent = '';
             progressContainer.classList.remove('hidden');
             progressBar.style.width = '0%';
-
-            // Tesseract's own logger will handle the progress bar now
-            tesseractWorker.setLogging(true);
-            tesseractWorker.setParameters({
-                logger: m => {
-                    if (m.status === 'recognizing text') {
-                        progressBar.style.width = (m.progress * 100) + '%';
-                    }
-                }
-            });
 
             const canvas = document.createElement('canvas');
             canvas.width = videoElement.videoWidth;
@@ -297,22 +285,18 @@
                     statusText.textContent = 'Tarama başarıyla tamamlandı!';
                 } else {
                     resultBox.textContent = 'Sayı bulunamadı';
-                    statusText.textContent = 'Herhangi bir sayı tespit edilemedi. Lütfen tekrar deneyin.';
+                    statusText.textContent = 'Herhangi bir sayı tespit edilemedi.';
                 }
             } catch (error) {
                 console.error("OCR Error:", error);
                 resultBox.textContent = 'Hata';
                 statusText.textContent = 'Sayılar tanınırken bir hata oluştu.';
             } finally {
-                // Re-enable the button and hide progress
                 captureButton.disabled = false;
                 captureButton.textContent = 'Sayıları Tara';
                 progressContainer.classList.add('hidden');
             }
         });
-
-        // Start the camera when the page loads
-        window.addEventListener('load', startCamera);
     </script>
 </body>
 </html>
