@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Kamera ile Hedef Arama</title>
+    <title>Barkod Tarayıcı</title>
     <style>
-        /* General Styling */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
@@ -14,11 +13,8 @@
             margin: 0;
             padding: 1rem;
             background-color: #f0f2f5;
-            color: #1c1e21;
-            overscroll-behavior: contain; /* Prevents pull-to-refresh */
         }
 
-        /* Main container for the application */
         #app-container {
             max-width: 600px;
             width: 100%;
@@ -29,40 +25,19 @@
             box-sizing: border-box;
         }
 
-        /* Header styling */
         h1 {
             font-size: 1.5rem;
             text-align: center;
             color: #007aff;
-            margin-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
         }
         
-        p {
-            text-align: center;
-            margin-bottom: 1.5rem;
-            color: #606770;
-        }
-
-        /* Video container to maintain aspect ratio */
-        #video-container {
-            position: relative;
+        /* The container for the barcode scanner camera view */
+        #reader {
             width: 100%;
-            /* 4:3 Aspect Ratio */
-            padding-top: 75%;
-            background: #000;
             border-radius: 8px;
             overflow: hidden;
             border: 1px solid #ddd;
-        }
-
-        /* Video element styling */
-        #video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover; /* Ensures video covers the container */
         }
 
         /* Button styling */
@@ -78,34 +53,27 @@
             border-radius: 8px;
             cursor: pointer;
             margin-top: 1.5rem;
-            transition: transform 0.2s, box-shadow 0.2s;
-            -webkit-tap-highlight-color: transparent; /* Removes tap highlight on iOS */
+            transition: background-color 0.3s;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .action-button:disabled {
             background: #c7c7cc;
             cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
-        .action-button:active:not(:disabled) {
-            transform: scale(0.98);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        .hidden {
-            display: none;
         }
 
-        /* Output section styling */
-        #output-section {
+        .action-button.stop {
+             background: linear-gradient(to right, #ff3b30, #ff9500);
+        }
+
+        /* Result section styling */
+        #result-section {
             margin-top: 1.5rem;
+            text-align: center;
         }
 
-        #output-section h2 {
+        #result-section h2 {
             font-size: 1.2rem;
-            margin-bottom: 0.5rem;
             color: #333;
         }
 
@@ -113,213 +81,127 @@
             background: #f0f2f5;
             padding: 1rem;
             border-radius: 8px;
-            min-height: 4rem;
+            min-height: 3rem;
             font-family: "SF Mono", "Menlo", "Courier New", Courier, monospace;
-            font-size: 1.4rem;
+            font-size: 1.2rem;
             font-weight: bold;
-            text-align: center;
             color: #007aff;
-            white-space: pre-wrap;
-            word-wrap: break-word;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: background-color 0.3s, color 0.3s;
         }
         
-        /* Style for when the target is found */
         #result-box.found {
             background-color: #34c759; /* Green background */
             color: #ffffff; /* White text */
         }
-
-
-        /* Status and progress bar styling */
-        #status-container {
-            margin-top: 1rem;
-            text-align: center;
-            font-size: 0.9rem;
-            color: #606770;
-            height: 40px; /* Reserve space to prevent layout shifts */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+        
+        #status-text {
+             margin-top: 1rem;
+             color: #606770;
         }
-
-        .progress-bar-container {
-            width: 100%;
-            background-color: #e0e0e0;
-            border-radius: 5px;
-            overflow: hidden;
-            margin-top: 0.5rem;
-        }
-
-        .progress-bar {
-            width: 0%;
-            height: 10px;
-            background-color: #007aff;
-            transition: width 0.3s ease-in-out;
-        }
+        
     </style>
 </head>
 <body>
 
     <div id="app-container">
-        <h1>Hedef Numarayı Bul</h1>
-        <p>Aranacak numara: <strong>8681291090066</strong></p>
+        <h1>Barkod Tarayıcı</h1>
+        
+        <!-- This div is where the camera scanner will be rendered -->
+        <div id="reader"></div>
 
-        <div id="video-container">
-            <video id="video" autoplay playsinline muted></video>
-        </div>
+        <button id="scan-button" class="action-button">Taramayı Başlat</button>
 
-        <button id="start-camera-button" class="action-button">Kamerayı Başlat</button>
-        <button id="capture-button" class="action-button hidden" disabled>Tara</button>
-
-        <div id="status-container">
-            <div id="status-text">Kamerayı başlatmak için düğmeye basın.</div>
-            <div id="progress-container" class="hidden">
-                <div class="progress-bar-container">
-                    <div id="progress-bar" class="progress-bar"></div>
-                </div>
-            </div>
-        </div>
-
-        <div id="output-section">
+        <div id="result-section">
             <h2>Sonuç</h2>
-            <div id="result-box">...</div>
+            <div id="result-box">Kamera bekleniyor...</div>
+            <p id="status-text">Hedef Barkod: <strong>8681291090066</strong></p>
         </div>
     </div>
 
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <!-- The html5-qrcode library -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <script>
-        // DOM element references
-        const videoElement = document.getElementById('video');
-        const startCameraButton = document.getElementById('start-camera-button');
-        const captureButton = document.getElementById('capture-button');
+        const scanButton = document.getElementById('scan-button');
         const resultBox = document.getElementById('result-box');
         const statusText = document.getElementById('status-text');
-        const progressContainer = document.getElementById('progress-container');
-        const progressBar = document.getElementById('progress-bar');
         
-        let tesseractWorker = null;
-        let isWorkerReady = false;
+        let isScanning = false;
+        
+        // This object will handle the scanner functionality
+        const html5QrCode = new Html5Qrcode("reader");
 
-        async function initializeWorker() {
-            statusText.textContent = 'OCR motoru hazırlanıyor...';
-            progressContainer.classList.remove('hidden');
-            progressBar.style.width = '0%';
-
-            try {
-                tesseractWorker = await Tesseract.createWorker('eng', 1, {
-                    logger: m => {
-                        if (m.status === 'loading language model' || m.status === 'recognizing text') {
-                             progressBar.style.width = (m.progress * 100) + '%';
-                        }
-                    },
-                });
-                await tesseractWorker.setParameters({
-                    tessedit_char_whitelist: '0123456789',
-                });
-                isWorkerReady = true;
-                statusText.textContent = 'OCR motoru hazır. Şimdi tarayabilirsiniz.';
-                progressContainer.classList.add('hidden');
-                return true;
-            } catch(err) {
-                console.error("OCR Worker Error:", err);
-                statusText.textContent = 'Hata: OCR motoru başlatılamadı.';
-                captureButton.disabled = false;
-                captureButton.textContent = 'Tekrar Dene';
-                return false;
-            }
-        }
-
-        function startCamera() {
-            startCameraButton.disabled = true;
-            startCameraButton.textContent = "Başlatılıyor...";
+        // The function that gets called when a barcode is successfully scanned
+        const onScanSuccess = (decodedText, decodedResult) => {
+            // decodedText contains the scanned barcode number
+            const targetBarcode = '8681291090066';
             
-            navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' }
-            })
-            .then(function(stream) {
-                videoElement.srcObject = stream;
-                videoElement.play();
+            resultBox.classList.remove('found'); // Reset style
+            
+            if (decodedText === targetBarcode) {
+                resultBox.textContent = `BULUNDU: ${decodedText}`;
+                resultBox.classList.add('found'); // Apply green style
+                statusText.textContent = "Hedef barkod başarıyla eşleşti!";
                 
-                statusText.textContent = 'Kamera hazır. Tarama yapabilirsiniz.';
-                startCameraButton.classList.add('hidden');
-                captureButton.classList.remove('hidden');
-                captureButton.disabled = false;
-            })
-            .catch(function(err) {
-                console.error("Camera Error:", err);
-                statusText.innerHTML = `<strong>Kamera Hatası: ${err.name}</strong><br>Lütfen Safari ayarlarından kamera izni verip sayfayı yenileyin.`;
-                startCameraButton.disabled = false;
-                startCameraButton.textContent = "Tekrar Dene";
+                // Optional: Stop scanning after a successful match
+                stopScanning();
+
+            } else {
+                resultBox.textContent = `Bulunan: ${decodedText}`;
+                statusText.textContent = "Bu barkod hedefle eşleşmiyor.";
+            }
+        };
+
+        // The function that gets called on scan failure (optional)
+        const onScanFailure = (error) => {
+            // This can be ignored, as it fires continuously when no code is found.
+            // console.warn(`Code scan error = ${error}`);
+        };
+        
+        function startScanning() {
+             html5QrCode.start(
+                { facingMode: "environment" }, // Use the rear camera
+                {
+                    fps: 10, // Frames per second
+                    // Specify we are looking for EAN_13 barcodes
+                    formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13 ], 
+                    qrbox: { width: 250, height: 150 } // Size of the scanning box
+                },
+                onScanSuccess,
+                onScanFailure
+            ).then(() => {
+                isScanning = true;
+                scanButton.textContent = 'Taramayı Durdur';
+                scanButton.classList.add('stop');
+                resultBox.textContent = "Barkod aranıyor...";
+            }).catch(err => {
+                 resultBox.textContent = `Hata: ${err}`;
             });
         }
         
-        startCameraButton.addEventListener('click', startCamera);
+        function stopScanning() {
+             html5QrCode.stop().then(() => {
+                isScanning = false;
+                scanButton.textContent = 'Taramayı Başlat';
+                scanButton.classList.remove('stop');
+                resultBox.textContent = "Tarama durduruldu.";
+            }).catch(err => {
+                console.error("Durdurma hatası:", err);
+            });
+        }
 
-        captureButton.addEventListener('click', async () => {
-            if (!videoElement.srcObject) {
-                alert("Kamera akışı bulunamadı. Lütfen sayfayı yenileyin.");
-                return;
-            }
-            
-            captureButton.disabled = true;
-
-            if (!isWorkerReady) {
-                const success = await initializeWorker();
-                if (!success) { return; }
-            }
-
-            captureButton.textContent = 'Taranıyor...';
-            statusText.textContent = 'Görüntü işleniyor...';
-            resultBox.textContent = '';
-            resultBox.classList.remove('found'); // Reset style
-            progressContainer.classList.remove('hidden');
-            progressBar.style.width = '0%';
-
-            const canvas = document.createElement('canvas');
-            canvas.width = videoElement.videoWidth;
-            canvas.height = videoElement.videoHeight;
-            canvas.getContext('2d').drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-            try {
-                const { data: { text } } = await tesseractWorker.recognize(canvas);
-                const recognizedText = text.trim();
-                
-                // --- NEW LOGIC TO CHECK FOR SPECIFIC NUMBER ---
-                const targetNumber = '8681291090066';
-                
-                if (recognizedText) {
-                    // Remove all spaces and newlines to make matching easier
-                    const cleanRecognizedText = recognizedText.replace(/\s+/g, '');
-
-                    if (cleanRecognizedText.includes(targetNumber)) {
-                        resultBox.textContent = `BULUNDU: ${targetNumber}`;
-                        resultBox.classList.add('found'); // Apply success style
-                        statusText.textContent = 'Hedef numara başarıyla bulundu!';
-                    } else {
-                        resultBox.textContent = recognizedText;
-                        statusText.textContent = 'Tarama tamamlandı, ancak hedef numara bulunamadı.';
-                    }
-                } else {
-                    resultBox.textContent = 'Sayı bulunamadı';
-                    statusText.textContent = 'Herhangi bir sayı tespit edilemedi.';
-                }
-                // --- END OF NEW LOGIC ---
-
-            } catch (error) {
-                console.error("OCR Error:", error);
-                resultBox.textContent = 'Hata';
-                statusText.textContent = 'Sayılar tanınırken bir hata oluştu.';
-            } finally {
-                captureButton.disabled = false;
-                captureButton.textContent = 'Tara';
-                progressContainer.classList.add('hidden');
+        // Event listener for the main button
+        scanButton.addEventListener('click', () => {
+            if (isScanning) {
+                stopScanning();
+            } else {
+                startScanning();
             }
         });
+
     </script>
 </body>
 </html>
