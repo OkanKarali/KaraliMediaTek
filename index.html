@@ -141,7 +141,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithRedirect, signOut, onAuthStateChanged, getRedirectResult } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDocs, setDoc, deleteDoc, onSnapshot, collection, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -260,7 +260,7 @@
         function setupAppForUser(userId) {
             listenForProductChanges(userId);
             setupEventListeners();
-            updateCartUI(); // Initial call
+            updateCartUI();
         }
 
         async function listenForProductChanges(userId) {
@@ -312,8 +312,6 @@
         }
         
         function createAndShowProductModal() {
-            // Modal'ın içeriğini ve event listener'larını burada oluştur
-            // Bu, her açıldığında temiz bir başlangıç sağlar.
             productModal.innerHTML = `
              <div class="modal-content">
                 <h2 style="margin-top:0;">Ürün Yönetimi</h2>
@@ -372,6 +370,15 @@
             resetProductForm();
         }
 
+        // --- Authentication Logic ---
+        loginBtn.addEventListener('click', () => {
+            const provider = new GoogleAuthProvider();
+            // Use signInWithRedirect for better compatibility
+            signInWithRedirect(auth, provider);
+        });
+        
+        logoutBtn.addEventListener('click', () => signOut(auth));
+
         onAuthStateChanged(auth, user => {
             if (user) {
                 appContainer.classList.remove('hidden');
@@ -383,15 +390,12 @@
                 loginContainer.classList.remove('hidden');
                 if (unsubscribeProducts) unsubscribeProducts();
                 stopScanner();
+                // Check for redirect result on page load
+                getRedirectResult(auth).catch(error => {
+                     console.error("Giriş yönlendirmesi hatası:", error);
+                });
             }
         });
-
-        loginBtn.addEventListener('click', () => {
-            const provider = new GoogleAuthProvider();
-            signInWithPopup(auth, provider).catch(error => console.error("Giriş hatası:", error));
-        });
-
-        logoutBtn.addEventListener('click', () => signOut(auth));
     </script>
 </body>
 </html>
