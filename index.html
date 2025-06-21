@@ -171,30 +171,52 @@
 
         const onScanFailure = (error) => { /* Ignore */ };
         
+        // **NEW**: Helper function to apply advanced settings after the camera starts
+        function applyAdvancedConstraints() {
+            try {
+                const track = html5QrCode.getRunningTrack();
+                const capabilities = track.getCapabilities();
+
+                const constraintsToApply = {};
+
+                // Apply continuous focus if supported
+                if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
+                    constraintsToApply.focusMode = 'continuous';
+                }
+
+                // Apply ideal zoom if supported
+                if (capabilities.zoom) {
+                     constraintsToApply.zoom = 1.2;
+                }
+                
+                // Only apply if there are constraints to apply
+                if (Object.keys(constraintsToApply).length > 0) {
+                    track.applyConstraints({
+                        advanced: [constraintsToApply]
+                    }).catch(e => console.log("Gelişmiş ayarlar uygulanamadı:", e));
+                }
+            } catch (err) {
+                console.error("Gelişmiş ayarlar alınamadı:", err);
+            }
+        }
+        
         function startScanning() {
-            // **IMPROVEMENT**: Advanced video constraints for better real-world scanning
-            const videoConstraints = {
-                facingMode: "environment",
-                focusMode: "continuous", // Prioritize continuous auto-focus
-                zoom: { ideal: 1.2 },      // Suggest a slight zoom
-            };
-            
-            // **IMPROVEMENT**: Higher FPS and specific format for barcodes
             const config = {
-                fps: 25, // Increased FPS for more chances to scan
+                fps: 20, // Adjusted FPS
                 formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13 ],
                 qrbox: (viewfinderWidth, viewfinderHeight) => {
-                    // Make scanning box wider for barcodes
                     return {
-                        width: viewfinderWidth * 0.85,
-                        height: viewfinderHeight * 0.4
+                        width: viewfinderWidth * 0.9,
+                        height: viewfinderHeight * 0.5
                     };
                 }
             };
             
             scanButton.disabled = true;
+            
+            // **FIX**: Start with a simple, valid configuration to prevent the error.
             html5QrCode.start(
-                videoConstraints,
+                { facingMode: "environment" }, // Use a simple, one-key object
                 config,
                 onScanSuccess,
                 onScanFailure
@@ -204,7 +226,11 @@
                 scanButton.classList.add('stop');
                 resultBox.textContent = "Barkod aranıyor...";
                 scanButton.disabled = false;
+
+                // **NEW**: Apply advanced settings after the stream has started successfully
+                applyAdvancedConstraints(); 
                 checkTorchCapability();
+
             }).catch(err => {
                  resultBox.textContent = `Hata: ${err}`;
                  scanButton.disabled = false;
@@ -225,7 +251,6 @@
             });
         }
         
-        // **NEW**: Check if the camera has a flashlight
         function checkTorchCapability() {
             try {
                  const track = html5QrCode.getRunningTrack();
@@ -241,7 +266,6 @@
             }
         }
         
-        // **NEW**: Toggle the flashlight
         function toggleTorch() {
             if (isScanning && !torchButton.disabled) {
                 const track = html5QrCode.getRunningTrack();
