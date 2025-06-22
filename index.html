@@ -65,16 +65,9 @@
         .modal-content {
             background: white; padding: 2rem; border-radius: 12px;
             width: 90%; max-width: 500px;
-            transition: max-width 0.3s ease, max-height 0.3s ease;
             max-height: 90vh;
             display: flex;
             flex-direction: column;
-        }
-        .modal-content.large {
-            max-width: 90vw;
-        }
-        .modal-content.large .item-list {
-            max-height: 60vh;
         }
         .hidden { display: none !important; }
         #qr-reader video {
@@ -89,6 +82,13 @@
             color: #007bff;
             text-decoration: underline;
             cursor: pointer;
+        }
+        /* Search Focused State */
+        .search-focused #product-form-container {
+            display: none;
+        }
+        .search-focused #product-management-list {
+            max-height: calc(80vh - 200px); /* Adjust based on your modal's layout */
         }
     </style>
 </head>
@@ -372,17 +372,17 @@
             productModal.innerHTML = `
              <div class="modal-content">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h2 style="margin-top:0;">Ürün Yönetimi</h2>
-                    <button id="toggle-size-btn" class="btn-light" title="Genişlet/Daralt">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:20px; height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v4m0 0h-4m4 0l-5-5"></path></svg>
+                    <h2 style="margin-top:0;">Ürünler</h2>
+                    <button id="toggle-size-btn" class="btn-light" title="Büyüt">
+                        <svg style="width:20px; height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v4m0 0h-4m4 0l-5-5"></path></svg>
                     </button>
                 </div>
-                <div style="margin-bottom: 1.5rem;">
+                <div id="search-section" style="margin-bottom: 1.5rem;">
                     <label for="product-search-input">Ürün Ara:</label>
                     <input type="text" id="product-search-input" placeholder="Ürün adıyla ara...">
                     <ul id="product-management-list" class="item-list" style="margin-top: 1rem;"></ul>
                 </div>
-                <div style="border-top: 1px solid #eee; padding-top: 1rem;">
+                <div id="product-form-container" style="border-top: 1px solid #eee; padding-top: 1rem;">
                      <h3 id="form-title">Yeni Ürün Ekle</h3>
                      <form id="product-form">
                          <input type="hidden" id="original-barcode-input">
@@ -401,7 +401,17 @@
             
             document.getElementById('close-modal-btn').addEventListener('click', () => { productModal.style.display = 'none'; startScanner(); });
             document.getElementById('toggle-size-btn').addEventListener('click', (e) => {
-                e.currentTarget.closest('.modal-content').classList.toggle('large');
+                const modalContent = e.currentTarget.closest('.modal-content');
+                modalContent.querySelector('#product-form-container').classList.toggle('hidden');
+                modalContent.querySelector('#search-section').classList.toggle('search-focused');
+                 const icon = e.currentTarget.querySelector('svg');
+                if(modalContent.querySelector('#product-form-container').classList.contains('hidden')){
+                    e.currentTarget.title = "Küçült";
+                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>`;
+                } else {
+                     e.currentTarget.title = "Büyüt";
+                     icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v4m0 0h-4m4 0l-5-5"></path>`;
+                }
             });
             document.getElementById('product-search-input').addEventListener('input', e => renderProductManagementList(e.target.value));
             document.getElementById('product-management-list').addEventListener('click', handleProductListClick);
