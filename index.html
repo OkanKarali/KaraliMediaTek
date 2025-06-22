@@ -4,14 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KaraliMediaTek - Barkod Sistemi</title>
-    
-    <!-- NEW: App Icon and Home Screen Settings -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="KaraliMediaTek">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23007bff'/%3E%3Cpath d='M30,25 L30,75 L45,75 L45,60 L60,75 L70,75 L50,50 L70,25 L60,25 L45,40 L45,25 Z' fill='white'/%3E%3C/svg%3E">
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23007bff'/%3E%3Cpath d='M30,25 L30,75 L45,75 L45,60 L60,75 L70,75 L50,50 L70,25 L60,25 L45,40 L45,25 Z' fill='white'/%3E%3C/svg%3E">
-    
     <!-- Modern Scanner Library -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
@@ -59,7 +51,7 @@
         .input-group { display: flex; gap: 0.5rem; align-items: center; }
         .input-group input { margin-bottom: 0; }
         
-        .item-list { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
+        .item-list { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; transition: max-height 0.3s ease; }
         .item-list li {
             padding: 1rem; background-color: #fff; border-bottom: 1px solid #eee;
             display: flex; justify-content: space-between; align-items: center;
@@ -73,6 +65,16 @@
         .modal-content {
             background: white; padding: 2rem; border-radius: 12px;
             width: 90%; max-width: 500px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            transition: max-width 0.3s ease;
+        }
+        .modal-content.large {
+            max-width: 90vw;
+        }
+        .modal-content.large .item-list {
+            max-height: 60vh;
         }
         .hidden { display: none !important; }
         #qr-reader video {
@@ -215,6 +217,10 @@
         const startCameraBtn = document.getElementById('start-camera-btn');
         const manualBarcodeInput = document.getElementById('manual-barcode-input');
         const manualAddBtn = document.getElementById('manual-add-btn');
+
+        function showAuthError(message) {
+            authError.textContent = message;
+        }
         
         function onScanSuccess(decodedText) {
             if (Date.now() - lastScanTime < 2000) return;
@@ -324,20 +330,59 @@
             await batch.commit();
         }
 
-        function renderProductManagementList(searchTerm = '') { /* ... */ }
-        function populateFormForEditing(barcode, item) { /* ... */ }
-        function resetProductForm() { /* ... */ }
+        function renderProductManagementList(searchTerm = '') {
+             const listEl = document.getElementById('product-management-list');
+             if(!listEl) return;
+             listEl.innerHTML = '';
+             const lowerCaseSearchTerm = searchTerm.toLowerCase();
+             const filtered = Object.keys(productDatabase).filter(b => productDatabase[b].name.toLowerCase().includes(lowerCaseSearchTerm));
+             if (filtered.length === 0) { listEl.innerHTML = `<li>Sonuç bulunamadı.</li>`; return; }
+             filtered.sort((a,b) => productDatabase[a].name.localeCompare(productDatabase[b].name)).forEach(barcode => {
+                const item = productDatabase[barcode];
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div style="flex-grow: 1;">
+                        <strong>${item.name}</strong>
+                        <strong style="margin-left: 10px; color: #007bff;">${item.price.toFixed(2)} TL</strong>
+                        <br><small>Barkod: ${barcode}</small>
+                    </div>
+                    <div>
+                        <button data-barcode="${barcode}" class="btn-light edit-btn" style="margin-right: 5px;">Düzenle</button>
+                        <button data-barcode="${barcode}" class="btn-danger delete-btn">Sil</button>
+                    </div>`;
+                listEl.appendChild(li);
+             });
+        }
         
+        function populateFormForEditing(barcode, item) {
+            document.getElementById('original-barcode-input').value = barcode;
+            document.getElementById('barcode-input').value = barcode;
+            document.getElementById('name-input').value = item.name;
+            document.getElementById('price-input').value = item.price;
+            document.getElementById('form-submit-button').textContent = 'Güncelle';
+        }
+        
+        function resetProductForm() {
+             document.getElementById('product-form').reset();
+             document.getElementById('original-barcode-input').value = '';
+             document.getElementById('form-submit-button').textContent = 'Ekle';
+        }
+
         function createAndShowProductModal() {
             productModal.innerHTML = `
              <div class="modal-content">
-                <h2 style="margin-top:0;">Ürün Yönetimi</h2>
-                <div style="margin-bottom: 1.5rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="margin-top:0;">Ürünler</h2>
+                    <button id="toggle-size-btn" class="btn-light" title="Büyüt">
+                        <svg style="width:20px; height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v4m0 0h-4m4 0l-5-5"></path></svg>
+                    </button>
+                </div>
+                <div id="search-section" style="margin-bottom: 1.5rem;">
                     <label for="product-search-input">Ürün Ara:</label>
                     <input type="text" id="product-search-input" placeholder="Ürün adıyla ara...">
                     <ul id="product-management-list" class="item-list" style="margin-top: 1rem;"></ul>
                 </div>
-                <div style="border-top: 1px solid #eee; padding-top: 1rem;">
+                <div id="product-form-container" style="border-top: 1px solid #eee; padding-top: 1rem;">
                      <h3 id="form-title">Yeni Ürün Ekle</h3>
                      <form id="product-form">
                          <input type="hidden" id="original-barcode-input">
@@ -355,6 +400,9 @@
             `;
             
             document.getElementById('close-modal-btn').addEventListener('click', () => { productModal.style.display = 'none'; startScanner(); });
+            document.getElementById('toggle-size-btn').addEventListener('click', (e) => {
+                e.currentTarget.closest('.modal-content').classList.toggle('large');
+            });
             document.getElementById('product-search-input').addEventListener('input', e => renderProductManagementList(e.target.value));
             document.getElementById('product-management-list').addEventListener('click', handleProductListClick);
             document.getElementById('product-form').addEventListener('submit', handleProductFormSubmit);
@@ -385,8 +433,28 @@
             });
         }
         
-        function handleProductListClick(e) { /* ... */ }
-        async function handleProductFormSubmit(e) { /* ... */ }
+        function handleProductListClick(e) {
+            const editBtn = e.target.closest('.edit-btn');
+            const deleteBtn = e.target.closest('.delete-btn');
+            if (editBtn) {
+                populateFormForEditing(editBtn.dataset.barcode, productDatabase[editBtn.dataset.barcode]);
+            }
+            if (deleteBtn && confirm(`'${productDatabase[deleteBtn.dataset.barcode].name}' ürününü silmek istediğinize emin misiniz?`)) {
+                deleteDoc(doc(productCollectionRef, deleteBtn.dataset.barcode));
+            }
+        }
+
+        async function handleProductFormSubmit(e) {
+            e.preventDefault();
+            const barcode = document.getElementById('barcode-input').value.trim();
+            const name = document.getElementById('name-input').value.trim();
+            const price = parseFloat(document.getElementById('price-input').value);
+            const originalBC = document.getElementById('original-barcode-input').value;
+            if (!barcode || !name || isNaN(price)) return alert('Lütfen tüm alanları doldurun.');
+            if (originalBC && originalBC !== barcode) await deleteDoc(doc(productCollectionRef, originalBC));
+            await setDoc(doc(productCollectionRef, barcode), { name, price });
+            resetProductForm();
+        }
 
         onAuthStateChanged(auth, user => {
             if (user) {
