@@ -51,7 +51,7 @@
         .input-group { display: flex; gap: 0.5rem; align-items: center; }
         .input-group input { margin-bottom: 0; }
         
-        .item-list { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
+        .item-list { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; transition: max-height 0.3s ease; }
         .item-list li {
             padding: 1rem; background-color: #fff; border-bottom: 1px solid #eee;
             display: flex; justify-content: space-between; align-items: center;
@@ -65,6 +65,16 @@
         .modal-content {
             background: white; padding: 2rem; border-radius: 12px;
             width: 90%; max-width: 500px;
+            transition: max-width 0.3s ease, max-height 0.3s ease;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-content.large {
+            max-width: 90vw;
+        }
+        .modal-content.large .item-list {
+            max-height: 60vh;
         }
         .hidden { display: none !important; }
         #qr-reader video {
@@ -284,17 +294,14 @@
             }
             totalPriceElement.textContent = `${Object.values(cart).reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2)} TL`;
             
-            // Save cart to session storage
             sessionStorage.setItem('barcodeCart', JSON.stringify(cart));
         }
         
         function setupAppForUser(userId) {
-            // Load cart from session storage on login
             const savedCart = sessionStorage.getItem('barcodeCart');
             if(savedCart) {
                 cart = JSON.parse(savedCart);
             }
-
             listenForProductChanges(userId);
             setupEventListeners();
             updateCartUI();
@@ -324,13 +331,13 @@
         }
 
         function renderProductManagementList(searchTerm = '') {
-            const listEl = document.getElementById('product-management-list');
-            if(!listEl) return;
-            listEl.innerHTML = '';
-            const lowerCaseSearchTerm = searchTerm.toLowerCase();
-            const filtered = Object.keys(productDatabase).filter(b => productDatabase[b].name.toLowerCase().includes(lowerCaseSearchTerm));
-            if (filtered.length === 0) { listEl.innerHTML = `<li>Sonuç bulunamadı.</li>`; return; }
-            filtered.sort((a,b) => productDatabase[a].name.localeCompare(productDatabase[b].name)).forEach(barcode => {
+             const listEl = document.getElementById('product-management-list');
+             if(!listEl) return;
+             listEl.innerHTML = '';
+             const lowerCaseSearchTerm = searchTerm.toLowerCase();
+             const filtered = Object.keys(productDatabase).filter(b => productDatabase[b].name.toLowerCase().includes(lowerCaseSearchTerm));
+             if (filtered.length === 0) { listEl.innerHTML = `<li>Sonuç bulunamadı.</li>`; return; }
+             filtered.sort((a,b) => productDatabase[a].name.localeCompare(productDatabase[b].name)).forEach(barcode => {
                 const item = productDatabase[barcode];
                 const li = document.createElement('li');
                 li.innerHTML = `
@@ -344,7 +351,7 @@
                         <button data-barcode="${barcode}" class="btn-danger delete-btn">Sil</button>
                     </div>`;
                 listEl.appendChild(li);
-            });
+             });
         }
         
         function populateFormForEditing(barcode, item) {
@@ -364,7 +371,12 @@
         function createAndShowProductModal() {
             productModal.innerHTML = `
              <div class="modal-content">
-                <h2 style="margin-top:0;">Ürün Yönetimi</h2>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="margin-top:0;">Ürün Yönetimi</h2>
+                    <button id="toggle-size-btn" class="btn-light" title="Genişlet/Daralt">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:20px; height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v4m0 0h-4m4 0l-5-5"></path></svg>
+                    </button>
+                </div>
                 <div style="margin-bottom: 1.5rem;">
                     <label for="product-search-input">Ürün Ara:</label>
                     <input type="text" id="product-search-input" placeholder="Ürün adıyla ara...">
@@ -388,6 +400,9 @@
             `;
             
             document.getElementById('close-modal-btn').addEventListener('click', () => { productModal.style.display = 'none'; startScanner(); });
+            document.getElementById('toggle-size-btn').addEventListener('click', (e) => {
+                e.currentTarget.closest('.modal-content').classList.toggle('large');
+            });
             document.getElementById('product-search-input').addEventListener('input', e => renderProductManagementList(e.target.value));
             document.getElementById('product-management-list').addEventListener('click', handleProductListClick);
             document.getElementById('product-form').addEventListener('submit', handleProductFormSubmit);
