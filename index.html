@@ -68,6 +68,13 @@
             max-height: 90vh;
             display: flex;
             flex-direction: column;
+            transition: max-width 0.3s ease;
+        }
+        .modal-content.large {
+            max-width: 90vw;
+        }
+        .modal-content.large .item-list {
+            max-height: 60vh;
         }
         .hidden { display: none !important; }
         #qr-reader video {
@@ -82,13 +89,6 @@
             color: #007bff;
             text-decoration: underline;
             cursor: pointer;
-        }
-        /* Search Focused State */
-        .search-focused #product-form-container {
-            display: none;
-        }
-        .search-focused #product-management-list {
-            max-height: calc(80vh - 200px); /* Adjust based on your modal's layout */
         }
     </style>
 </head>
@@ -401,17 +401,7 @@
             
             document.getElementById('close-modal-btn').addEventListener('click', () => { productModal.style.display = 'none'; startScanner(); });
             document.getElementById('toggle-size-btn').addEventListener('click', (e) => {
-                const modalContent = e.currentTarget.closest('.modal-content');
-                modalContent.querySelector('#product-form-container').classList.toggle('hidden');
-                modalContent.querySelector('#search-section').classList.toggle('search-focused');
-                 const icon = e.currentTarget.querySelector('svg');
-                if(modalContent.querySelector('#product-form-container').classList.contains('hidden')){
-                    e.currentTarget.title = "Küçült";
-                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>`;
-                } else {
-                     e.currentTarget.title = "Büyüt";
-                     icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v4m0 0h-4m4 0l-5-5"></path>`;
-                }
+                e.currentTarget.closest('.modal-content').classList.toggle('large');
             });
             document.getElementById('product-search-input').addEventListener('input', e => renderProductManagementList(e.target.value));
             document.getElementById('product-management-list').addEventListener('click', handleProductListClick);
