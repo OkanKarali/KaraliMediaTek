@@ -309,7 +309,7 @@
 
         async function listenForProductChanges(userId) {
             const appId = firebaseConfig.projectId;
-            productCollectionRef = collection(db, 'users', userId, 'products');
+            productCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'products');
             if ((await getDocs(productCollectionRef)).empty) await populateDefaultProducts(userId);
             if(unsubscribeProducts) unsubscribeProducts();
             unsubscribeProducts = onSnapshot(productCollectionRef, (snapshot) => {
@@ -323,7 +323,7 @@
         
         async function populateDefaultProducts(userId) {
             const appId = firebaseConfig.projectId;
-            const collectionRef = collection(db, 'users', userId, 'products');
+            const collectionRef = collection(db, 'artifacts', appId, 'users', userId, 'products');
             const defaultDB = { '8697411220020': { name: 'Örnek Ürün', price: 10.00 }};
             const batch = writeBatch(db);
             Object.keys(defaultDB).forEach(barcode => batch.set(doc(collectionRef, barcode), defaultDB[barcode]));
