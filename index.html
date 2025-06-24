@@ -12,7 +12,8 @@
     <link rel="icon" type="image/png" sizes="512x512" href="https://okankarali.github.io/KaraliMediaTek/icon-1024.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="KaraliMediaTek">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#ffffff">
     
     <!-- Android ve Masaüstü için Web App Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -519,5 +520,30 @@
         logoutBtn.addEventListener('click', () => signOut(auth));
 
     </script>
+
+<script>
+function requestCameraForiOS() {
+    const video = document.createElement('video');
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then((stream) => {
+            video.srcObject = stream;
+            video.play();
+            stream.getTracks().forEach(track => track.stop());
+        })
+        .catch((err) => {
+            console.error("iOS Kamera erişim hatası:", err);
+        });
+}
+
+window.addEventListener('load', () => {
+    const startBtn = document.getElementById('start-camera-btn');
+    if (startBtn) {
+        startBtn.addEventListener('click', () => {
+            requestCameraForiOS();
+        });
+    }
+});
+</script>
+
 </body>
 </html>
